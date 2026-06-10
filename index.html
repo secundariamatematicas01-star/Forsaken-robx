@@ -3,43 +3,150 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Juego Asimétrico - Estilo Forsaken</title>
+    <title>Forsaken - Juego Asimétrico</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
     <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; overflow: hidden; }
         body {
-            margin: 0;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            background-color: #1a1a1a;
-            font-family: Arial, sans-serif;
+            background-color: #000;
+            font-family: 'Arial', sans-serif;
+            color: #fff;
         }
-        #info {
+        .pantalla {
             position: absolute;
-            top: 10px;
+            width: 1000px;
+            height: 600px;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .pantalla h1 { font-size: 48px; margin-bottom: 30px; color: #e94560; text-shadow: 0 0 10px #e94560; }
+        .boton {
+            background: #e94560;
             color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 20px;
+            margin: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .boton:hover { background: #ff2e63; box-shadow: 0 0 15px #e94560; }
+        #ui {
+            position: absolute;
+            width: 1000px;
+            height: 600px;
+            pointer-events: none;
+            z-index: 50;
+        }
+        .barra-superior {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 20px;
             font-size: 18px;
-            z-index: 10;
+            font-weight: bold;
+            text-shadow: 0 0 5px #000;
+        }
+        .barra-energia {
+            width: 150px;
+            height: 15px;
+            background: #333;
+            border: 2px solid #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .energia {
+            height: 100%;
+            background: #f1c40f;
+            width: 100%;
+            transition: width 0.2s;
+        }
+        .mensaje-centro {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 32px;
+            font-weight: bold;
+            text-shadow: 0 0 15px #000;
+            background: rgba(0,0,0,0.7);
+            padding: 20px 40px;
+            border-radius: 10px;
+            display: none;
+        }
+        .oscuridad {
+            position: absolute;
+            width: 1000px;
+            height: 600px;
+            background: radial-gradient(circle at var(--x) var(--y), transparent 10%, rgba(0,0,0,0.95) 30%, rgba(0,0,0,1) 60%);
+            pointer-events: none;
+            z-index: 40;
         }
     </style>
 </head>
 <body>
-    <div id="info">Rol: <span id="rol">Sin asignar</span> | Generadores activados: <span id="progreso">0/4</span></div>
+
+    <!-- PANTALLAS DEL JUEGO -->
+    <div id="menuPrincipal" class="pantalla">
+        <h1>FORSAKEN</h1>
+        <p style="font-size: 20px; margin-bottom: 20px; text-align: center; max-width: 600px;">
+            Sobrevive, completa las tareas y escapa... o conviértete en la entidad y caza a los intrusos.
+        </p>
+        <button class="boton" onclick="iniciarJuego()">JUGAR</button>
+        <button class="boton" onclick="mostrarControles()">CONTROLES</button>
+    </div>
+
+    <div id="salaEspera" class="pantalla" style="display: none;">
+        <h2 style="font-size: 36px; margin-bottom: 20px;">Sala de Espera</h2>
+        <p style="font-size: 20px; margin-bottom: 30px;">Eligiendo rol aleatoriamente...</p>
+        <div id="rolAsignado" style="font-size: 28px; color: #f1c40f;"></div>
+        <button class="boton" style="margin-top: 30px;" onclick="comenzarPartida()">COMENZAR</button>
+    </div>
+
+    <div id="pantallaFin" class="pantalla" style="display: none;">
+        <h2 id="textoFin"></h2>
+        <p id="razonFin" style="font-size: 20px; margin-bottom: 30px;"></p>
+        <button class="boton" onclick="reiniciarJuego()">VOLVER AL MENÚ</button>
+    </div>
+
+    <!-- INTERFAZ DE JUEGO -->
+    <div id="ui">
+        <div class="barra-superior">
+            <div>
+                Rol: <span id="rolTexto">---</span> | 
+                Generadores: <span id="progresoTexto">0/4</span>
+            </div>
+            <div>
+                Linterna: <div class="barra-energia"><div class="energia" id="barraLinterna"></div></div> |
+                Tiempo: <span id="tiempoTexto">10:00</span>
+            </div>
+        </div>
+        <div id="mensajeCentro" class="mensaje-centro"></div>
+    </div>
+
+    <!-- EFECTO DE OSCURIDAD -->
+    <div class="oscuridad" id="capaOscuridad" style="--x: 500px; --y: 300px;"></div>
 
     <script>
-        // Configuración del juego
+        // CONFIGURACIÓN DEL JUEGO
         const config = {
             type: Phaser.AUTO,
             width: 1000,
             height: 600,
-            backgroundColor: '#2c3e50',
+            backgroundColor: '#111',
             physics: {
                 default: 'arcade',
-                arcade: {
-                    gravity: { y: 0 },
-                    debug: false // Pon en true si quieres ver los límites de colisión
-                }
+                arcade: { gravity: { y: 0 }, debug: false }
             },
             scene: {
                 preload: preload,
@@ -50,181 +157,327 @@
 
         const game = new Phaser.Game(config);
 
-        // Variables globales
-        let jugador;
-        let entidad;
-        let supervivientes = [];
-        let generadores = [];
-        let rolActual;
+        // VARIABLES GLOBALES
+        let jugador, entidad, supervivientes = [], generadores = [], puertaSalida;
+        let rolActual = null;
+        let estadoJuego = 'menu'; // menu, jugando, fin
         let generadoresActivados = 0;
-        let puertaSalida;
-        let teclas;
-        let juegoTerminado = false;
+        let energiaLinterna = 100;
+        let linternaEncendida = true;
+        let tiempoRestante = 600; // 10 minutos en segundos
+        let temporizador;
+        let teclas, teclaInteractuar, teclaLinterna, teclaHabilidad;
+        let sonidoPasos, sonidoInteraccion, sonidoMiedo, musicaFondo;
+        let capaOscuridad = document.getElementById('capaOscuridad');
 
+        // --- CARGA DE RECURSOS ---
         function preload() {
-            // Cargamos colores básicos como texturas (puedes cambiar por imágenes después)
-            this.load.image('jugador', 'https://via.placeholder.com/30/3498db/ffffff?text=S'); // Superviviente
-            this.load.image('entidad', 'https://via.placeholder.com/40/e74c3c/ffffff?text=E'); // Entidad
-            this.load.image('generador', 'https://via.placeholder.com/25/f39c12/ffffff?text=G');
-            this.load.image('puerta', 'https://via.placeholder.com/50x80/2ecc71/ffffff?text=SALIDA');
-            this.load.image('pared', 'https://via.placeholder.com/40/34495e/ffffff');
+            // Texturas
+            this.load.image('jugador', 'https://via.placeholder.com/32/3498db/ffffff?text=S');
+            this.load.image('entidad', 'https://via.placeholder.com/40/e74c3c/ffffff?text=E');
+            this.load.image('generador', 'https://via.placeholder.com/28/f39c12/ffffff?text=G');
+            this.load.image('generadorActivo', 'https://via.placeholder.com/28/2ecc71/ffffff?text=✔');
+            this.load.image('puerta', 'https://via.placeholder.com/60x100/27ae60/ffffff?text=SALIDA');
+            this.load.image('pared', 'https://via.placeholder.com/40/2c3e50/ffffff');
+            this.load.image('suelo', 'https://via.placeholder.com/40/34495e/ffffff');
+
+            // Sonidos (usamos fuentes públicas para que funcione directo)
+            this.load.audio('pasos', 'https://assets.mixkit.co/sfx/preview/mixkit-light-footsteps-on-concrete-1173.mp3');
+            this.load.audio('interactuar', 'https://assets.mixkit.co/sfx/preview/mixkit-electric-lock-1673.mp3');
+            this.load.audio('miedo', 'https://assets.mixkit.co/sfx/preview/mixkit-suspense-background-music-1228.mp3');
+            this.load.audio('musica', 'https://assets.mixkit.co/sfx/preview/mixkit-dark-ambient-atmosphere-1213.mp3');
         }
 
+        // --- CREACIÓN DEL MUNDO ---
         function create() {
-            // 1. Asignamos rol aleatoriamente (en versión multijugador esto se define por servidor)
-            const roles = ['superviviente', 'entidad'];
-            rolActual = roles[Math.floor(Math.random() * roles.length)];
-            document.getElementById('rol').textContent = rolActual.toUpperCase();
+            teclas = this.input.keyboard.createCursorKeys();
+            teclaInteractuar = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+            teclaLinterna = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
+            teclaHabilidad = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
 
-            // 2. Creamos paredes para el mapa
+            // Sonidos
+            sonidoPasos = this.sound.add('pasos', { volume: 0.3, loop: true });
+            sonidoInteraccion = this.sound.add('interactuar', { volume: 0.5 });
+            sonidoMiedo = this.sound.add('miedo', { volume: 0.4, loop: true });
+            musicaFondo = this.sound.add('musica', { volume: 0.2, loop: true });
+
+            // MAPA COMPLEJO - Paredes y habitaciones
             const paredes = this.physics.add.staticGroup();
             // Bordes
             paredes.create(500, 20, 'pared').setScale(25, 1).refreshBody();
             paredes.create(500, 580, 'pared').setScale(25, 1).refreshBody();
             paredes.create(20, 300, 'pared').setScale(1, 15).refreshBody();
             paredes.create(980, 300, 'pared').setScale(1, 15).refreshBody();
-            // Obstáculos internos
-            paredes.create(200, 150, 'pared').setScale(3, 1).refreshBody();
-            paredes.create(600, 400, 'pared').setScale(1, 4).refreshBody();
-            paredes.create(400, 250, 'pared').setScale(2, 1).refreshBody();
+            // Habitaciones y pasillos
+            paredes.create(250, 150, 'pared').setScale(8, 1).refreshBody();
+            paredes.create(250, 450, 'pared').setScale(8, 1).refreshBody();
+            paredes.create(600, 300, 'pared').setScale(1, 12).refreshBody();
+            paredes.create(400, 100, 'pared').setScale(1, 4).refreshBody();
+            paredes.create(750, 500, 'pared').setScale(6, 1).refreshBody();
+            paredes.create(750, 100, 'pared').setScale(6, 1).refreshBody();
+            paredes.create(850, 200, 'pared').setScale(1, 5).refreshBody();
+            paredes.create(850, 400, 'pared').setScale(1, 5).refreshBody();
 
-            // 3. Creamos generadores (objetivo de supervivientes)
-            for (let i = 0; i < 4; i++) {
-                let gen = this.physics.add.sprite(150 + i * 200, 120 + i * 80, 'generador');
+            // Generadores distribuidos por el mapa
+            generadores = [];
+            const posicionesGen = [[120,120], [380,420], [650,150], [200,480]];
+            posicionesGen.forEach( (pos, i) => {
+                let gen = this.physics.add.sprite(pos[0], pos[1], 'generador');
                 gen.activo = false;
+                gen.enUso = false;
+                gen.tiempoActivacion = 3000; // 3 segundos para activar
                 gen.body.immovable = true;
                 generadores.push(gen);
-            }
+            });
 
-            // 4. Puerta de salida (se abre al activar todos los generadores)
-            puertaSalida = this.physics.add.sprite(850, 300, 'puerta');
+            // Puerta de salida
+            puertaSalida = this.physics.add.sprite(880, 300, 'puerta');
             puertaSalida.body.immovable = true;
             puertaSalida.visible = false;
 
-            // 5. Creamos jugadores según rol
-            if (rolActual === 'superviviente') {
-                jugador = this.physics.add.sprite(150, 450, 'jugador');
-                jugador.setCollideWorldBounds(true);
-                jugador.velocidad = 160;
-
-                // Otros supervivientes (simulados)
-                for (let i = 0; i < 2; i++) {
-                    let sup = this.physics.add.sprite(250 + i * 100, 450, 'jugador');
-                    sup.setCollideWorldBounds(true);
-                    supervivientes.push(sup);
-                }
-
-                // La Entidad (controlada por otro jugador / IA)
-                entidad = this.physics.add.sprite(800, 100, 'entidad');
-                entidad.setCollideWorldBounds(true);
-                entidad.velocidad = 220; // Más rápida que los supervivientes
-            } 
-            else { // Rol: Entidad
-                jugador = this.physics.add.sprite(800, 100, 'entidad');
-                jugador.setCollideWorldBounds(true);
-                jugador.velocidad = 220;
-
-                // Supervivientes (controlados por otros / IA)
-                for (let i = 0; i < 3; i++) {
-                    let sup = this.physics.add.sprite(150 + i * 100, 450, 'jugador');
-                    sup.setCollideWorldBounds(true);
-                    supervivientes.push(sup);
-                }
-            }
-
-            // 6. Colisiones
+            // Colisiones generales
             this.physics.add.collider(jugador, paredes);
             this.physics.add.collider(supervivientes, paredes);
             this.physics.add.collider(entidad, paredes);
-            this.physics.add.collider(jugador, generadores);
-            this.physics.add.collider(jugador, puertaSalida);
 
-            // Colisión Entidad ↔ Superviviente = Captura
-            this.physics.add.overlap(entidad, supervivientes, capturarSuperviviente, null, this);
-            this.physics.add.overlap(jugador, generadores, interactuarConGenerador, null, this);
-            this.physics.add.overlap(jugador, puertaSalida, escaparJuego, null, this);
-
-            // 7. Controles de teclado
-            teclas = this.input.keyboard.createCursorKeys();
-            // Tecla para interactuar
-            this.teclaInteractuar = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+            // Iniciar temporizador
+            temporizador = this.time.addEvent({
+                delay: 1000,
+                callback: actualizarTiempo,
+                callbackScope: this,
+                loop: true
+            });
         }
 
+        // --- ACTUALIZACIÓN CONTINUA ---
         function update() {
-            if (juegoTerminado) return;
+            if (estadoJuego !== 'jugando') return;
 
-            // --- MOVIMIENTO SEGÚN ROL ---
+            // Actualizar posición de la luz de linterna
+            if (jugador) {
+                capaOscuridad.style.setProperty('--x', `${jugador.x}px`);
+                capaOscuridad.style.setProperty('--y', `${jugador.y}px`);
+            }
+
+            // --- CONTROLES Y MOVIMIENTO ---
+            let velocidadBase = (rolActual === 'entidad') ? 200 : 150;
+            let velocidad = velocidadBase;
+
+            // Habilidades especiales
+            if (Phaser.Input.Keyboard.IsDown(teclaHabilidad)) {
+                if (rolActual === 'superviviente' && energiaLinterna > 0) {
+                    velocidad = velocidadBase * 1.4; // Correr
+                    energiaLinterna -= 0.5;
+                }
+                if (rolActual === 'entidad') {
+                    velocidad = velocidadBase * 1.6; // Impulso rápido
+                }
+            }
+
+            moverJugador(jugador, velocidad);
+
+            // Sonido de pasos
+            if (teclas.left.isDown || teclas.right.isDown || teclas.up.isDown || teclas.down.isDown) {
+                if (!sonidoPasos.isPlaying) sonidoPasos.play();
+            } else {
+                sonidoPasos.stop();
+            }
+
+            // Linterna
+            if (Phaser.Input.Keyboard.JustDown(teclaLinterna)) {
+                linternaEncendida = !linternaEncendida;
+                capaOscuridad.style.opacity = linternaEncendida ? '1' : '0.98';
+            }
+            if (rolActual === 'superviviente' && linternaEncendida) {
+                energiaLinterna = Math.max(0, energiaLinterna - 0.08);
+                if (energiaLinterna <= 0) linternaEncendida = false;
+            }
+            // Recargar linterna poco a poco si está apagada
+            if (!linternaEncendida && energiaLinterna < 100) energiaLinterna += 0.2;
+            document.getElementById('barraLinterna').style.width = `${energiaLinterna}%`;
+
+            // --- LÓGICA SEGÚN ROL ---
             if (rolActual === 'superviviente') {
-                // Mover superviviente
-                moverJugador(jugador, jugador.velocidad);
-
-                // IA básica de la Entidad (se mueve hacia el jugador)
-                if (entidad.x < jugador.x) entidad.x += entidad.velocidad / 60;
-                if (entidad.x > jugador.x) entidad.x -= entidad.velocidad / 60;
-                if (entidad.y < jugador.y) entidad.y += entidad.velocidad / 60;
-                if (entidad.y > jugador.y) entidad.y -= entidad.velocidad / 60;
-            } 
-            else {
-                // Mover Entidad
-                moverJugador(jugador, jugador.velocidad);
-
-                // IA básica de supervivientes (huyen de la entidad)
+                // IA de otros supervivientes
                 supervivientes.forEach(sup => {
-                    if (sup.x < jugador.x) sup.x -= 2;
-                    if (sup.x > jugador.x) sup.x += 2;
-                    if (sup.y < jugador.y) sup.y -= 2;
-                    if (sup.y > jugador.y) sup.y += 2;
+                    sup.x += Phaser.Math.Between(-1,1);
+                    sup.y += Phaser.Math.Between(-1,1);
+                    this.physics.collide(sup, paredes);
+                });
+
+                // IA Entidad: persigue
+                if (entidad.active) {
+                    if (entidad.x < jugador.x) entidad.x += 1.8;
+                    if (entidad.x > jugador.x) entidad.x -= 1.8;
+                    if (entidad.y < jugador.y) entidad.y += 1.8;
+                    if (entidad.y > jugador.y) entidad.y -= 1.8;
+                }
+
+                // Interacción con generadores
+                this.physics.overlap(jugador, generadores, iniciarActivacionGenerador, null, this);
+                this.physics.overlap(jugador, puertaSalida, intentarEscapar, null, this);
+                this.physics.overlap(jugador, entidad, serCapturado, null, this);
+
+            } else if (rolActual === 'entidad') {
+                // IA Supervivientes: huyen
+                supervivientes.forEach(sup => {
+                    if (Phaser.Math.Distance.Between(sup.x, sup.y, jugador.x, jugador.y) < 200) {
+                        let angulo = Phaser.Math.Angle.Between(jugador.x, jugador.y, sup.x, sup.y);
+                        sup.x += Math.cos(angulo) * 1.2;
+                        sup.y += Math.sin(angulo) * 1.2;
+                    }
+                });
+
+                // Entidad captura al tocar
+                this.physics.overlap(jugador, supervivientes, capturarSuperviviente, null, this);
+            }
+
+            // Actualizar interfaz
+            document.getElementById('progresoTexto').textContent = `${generadoresActivados}/4`;
+        }
+
+        // --- FUNCIONES AUXILIARES ---
+        function moverJugador(pj, velocidad) {
+            pj.setVelocity(0);
+            if (teclas.left.isDown) pj.setVelocityX(-velocidad);
+            else if (teclas.right.isDown) pj.setVelocityX(velocidad);
+            if (teclas.up.isDown) pj.setVelocityY(-velocidad);
+            else if (teclas.down.isDown) pj.setVelocityY(velocidad);
+        }
+
+        function iniciarActivacionGenerador(jugador, gen) {
+            if (!gen.activo && !gen.enUso && Phaser.Input.Keyboard.JustDown(teclaInteractuar)) {
+                gen.enUso = true;
+                mostrarMensaje("Activando generador...", 3000);
+                
+                this.time.delayedCall(gen.tiempoActivacion, () => {
+                    if (gen.enUso) { // Si sigue cerca
+                        gen.activo = true;
+                        gen.setTexture('generadorActivo');
+                        generadoresActivados++;
+                        sonidoInteraccion.play();
+                        mostrarMensaje("¡Generador activado!", 2000);
+                        
+                        if (generadoresActivados === 4) {
+                            puertaSalida.visible = true;
+                            mostrarMensaje("¡PUERTA ABIERTA! ESCAPA AHORA", 5000);
+                        }
+                    }
                 });
             }
         }
 
-        // Función auxiliar para moverse con flechas
-        function moverJugador(pj, velocidad) {
-            pj.setVelocity(0);
-
-            if (teclas.left.isDown) pj.setVelocityX(-velocidad);
-            if (teclas.right.isDown) pj.setVelocityX(velocidad);
-            if (teclas.up.isDown) pj.setVelocityY(-velocidad);
-            if (teclas.down.isDown) pj.setVelocityY(velocidad);
+        function intentarEscapar(jugador, puerta) {
+            if (puerta.visible) {
+                finDelJuego(true, "¡Lograste escapar de la entidad!");
+            }
         }
 
-        // Interacción: Activar generador
-        function interactuarConGenerador(jugador, generador) {
-            if (rolActual === 'superviviente' && Phaser.Input.Keyboard.JustDown(this.teclaInteractuar) && !generador.activo) {
-                generador.activo = true;
-                generador.setTint(0x00ff00); // Cambia de color al activarse
-                generadoresActivados++;
-                document.getElementById('progreso').textContent = `${generadoresActivados}/4`;
+        function serCapturado(jugador, entidad) {
+            finDelJuego(false, "Fuiste atrapado por la entidad...");
+        }
 
-                // Si se activan todos, aparece la puerta
-                if (generadoresActivados === 4) {
-                    puertaSalida.visible = true;
+        function capturarSuperviviente(entidad, sup) {
+            sup.destroy();
+            supervivientes = supervivientes.filter(s => s.active);
+            if (supervivientes.length === 0) {
+                finDelJuego(true, "Eliminaste a todos los intrusos. El lugar sigue olvidado.");
+            }
+        }
+
+        function actualizarTiempo() {
+            tiempoRestante--;
+            let min = Math.floor(tiempoRestante/60);
+            let seg = tiempoRestante%60;
+            document.getElementById('tiempoTexto').textContent = `${min}:${seg.toString().padStart(2,'0')}`;
+            
+            if (tiempoRestante <= 0) {
+                if (rolActual === 'superviviente') finDelJuego(false, "Se acabó el tiempo. La oscuridad te consumió.");
+                else finDelJuego(true, "El tiempo terminó. Nadie escapó.");
+            }
+        }
+
+        function mostrarMensaje(texto, duracion = 2000) {
+            const msg = document.getElementById('mensajeCentro');
+            msg.textContent = texto;
+            msg.style.display = 'block';
+            this.time.delayedCall(duracion, () => msg.style.display = 'none');
+        }
+
+        function finDelJuego(ganado, razon) {
+            estadoJuego = 'fin';
+            sonidoPasos.stop();
+            sonidoMiedo.stop();
+            musicaFondo.stop();
+            
+            document.getElementById('pantallaFin').style.display = 'flex';
+            document.getElementById('textoFin').textContent = ganado ? "¡VICTORIA!" : "DERROTA";
+            document.getElementById('textoFin').style.color = ganado ? "#2ecc71" : "#e74c3c";
+            document.getElementById('razonFin').textContent = razon;
+        }
+
+        // --- CONTROL DE PANTALLAS ---
+        function iniciarJuego() {
+            document.getElementById('menuPrincipal').style.display = 'none';
+            document.getElementById('salaEspera').style.display = 'flex';
+            
+            // Asignar rol
+            const roles = ['superviviente', 'entidad'];
+            rolActual = roles[Math.floor(Math.random() * roles.length)];
+            document.getElementById('rolAsignado').textContent = `Tu rol: ${rolActual.toUpperCase()}`;
+            document.getElementById('rolTexto').textContent = rolActual.toUpperCase();
+            
+            // Ajustar visibilidad según rol
+            if (rolActual === 'entidad') {
+                capaOscuridad.style.background = 'rgba(0,0,0,0.7)'; // La entidad ve en oscuridad
+            }
+        }
+
+        function comenzarPartida() {
+            document.getElementById('salaEspera').style.display = 'none';
+            estadoJuego = 'jugando';
+            musicaFondo.play();
+            sonidoMiedo.play();
+
+            // CREAR PERSONAJES SEGÚN ROL
+            if (rolActual === 'superviviente') {
+                jugador = game.scene.scenes[0].physics.add.sprite(150, 480, 'jugador');
+                jugador.setCollideWorldBounds(true);
+                entidad = game.scene.scenes[0].physics.add.sprite(850, 100, 'entidad');
+                entidad.setCollideWorldBounds(true);
+                
+                // Otros supervivientes
+                for(let i=0; i<2; i++) {
+                    let s = game.scene.scenes[0].physics.add.sprite(150 + i*60, 480, 'jugador');
+                    s.setCollideWorldBounds(true);
+                    supervivientes.push(s);
+                }
+            } else {
+                jugador = game.scene.scenes[0].physics.add.sprite(850, 100, 'entidad');
+                jugador.setCollideWorldBounds(true);
+                
+                // Supervivientes
+                for(let i=0; i<3; i++) {
+                    let s = game.scene.scenes[0].physics.add.sprite(150 + i*60, 480, 'jugador');
+                    s.setCollideWorldBounds(true);
+                    supervivientes.push(s);
                 }
             }
         }
 
-        // Captura: Entidad atrapa a superviviente
-        function capturarSuperviviente(entidad, superviviente) {
-            superviviente.destroy();
-            const indice = supervivientes.indexOf(superviviente);
-            if (indice > -1) supervivientes.splice(indice, 1);
+        function mostrarControles() {
+            alert(`CONTROLES:
+→ Flechas: Moverse
+→ E: Interactuar / Activar
+→ F: Encender/Apagar linterna
+→ SHIFT: Correr / Habilidad especial
 
-            if (supervivientes.length === 0 && rolActual === 'entidad') {
-                finDelJuego("¡GANASTE! Atrapaste a todos los supervivientes 🎉");
-            }
+👤 SUPERVIVIENTE: Activa 4 generadores → Escapa por la puerta
+👹 ENTIDAD: Atrapa a todos antes de que escapen`);
         }
 
-        // Escapar: Superviviente llega a la puerta
-        function escaparJuego(jugador, puerta) {
-            if (rolActual === 'superviviente' && puerta.visible) {
-                finDelJuego("¡ESCAPASTE! Ganaste la partida 🎉");
-            }
-        }
-
-        // Fin del juego
-        function finDelJuego(mensaje) {
-            juegoTerminado = true;
-            this.add.text(300, 250, mensaje, { fontSize: '32px', fill: '#fff', backgroundColor: '#000' });
+        function reiniciarJuego() {
+            location.reload();
         }
     </script>
 </body>
